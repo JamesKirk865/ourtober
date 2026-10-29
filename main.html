@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Ourtober</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:ital,wght@1,700;1,900&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: {
+						logo: ['"Playfair Display"', 'serif'],
+						heading: ['"Cormorant Garamond"', 'serif'],
+						sans: ['"Montserrat"', 'sans-serif'],
+					}
+				}
+			}
+		}
+	</script>
+	<style>
+		body {
+			background-color: #000000;
+			color: #ffffff;
+		}
+	</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between px-4 py-8 sm:py-12 selection:bg-white selection:text-black font-sans">
+
+	<main class="w-full max-w-4xl flex flex-col items-center">
+		
+		<header class="text-center mb-10">
+			<h1 class="font-logo italic font-black text-6xl sm:text-8xl tracking-tight leading-none drop-shadow-[0_4px_20px_rgba(255,255,255,0.15)]">
+				Our<span class="tracking-tighter">tober</span>
+			</h1>
+			<span id="currentDateBadge" class="block font-logo italic font-bold text-xl sm:text-2xl text-neutral-400 tracking-widest mt-3 uppercase">
+				····
+			</span>
+		</header>
+
+		<section class="w-full text-center mb-8 px-4 py-6 border border-neutral-800 rounded-sm bg-neutral-950/60 shadow-2xl">
+			<span id="activePromptLabel" class="text-neutral-500 uppercase tracking-widest text-xs font-semibold block mb-2">
+				Тема сегодняшнего дня
+			</span>
+			<div id="activePrompt" class="text-3xl sm:text-5xl font-black uppercase tracking-wider text-white min-h-[3rem] flex items-center justify-center">
+				········
+			</div>
+			
+			<div class="mt-6 flex flex-col items-center justify-center border-t border-neutral-900 pt-5">
+				<span id="countdownLabel" class="text-[11px] uppercase tracking-widest text-neutral-500 mb-1">
+					Следующая тема откроется через (по МСК)
+				</span>
+				<div id="countdown" class="font-mono text-2xl sm:text-3xl font-bold tracking-widest text-neutral-200">
+					--:--:--
+				</div>
+			</div>
+		</section>
+
+		<section class="w-full mt-4">
+			<div id="promptsGrid" class="grid grid-cols-1 md:grid-flow-col md:grid-cols-3 gap-x-12 gap-y-3 font-heading font-bold text-base sm:text-lg uppercase">
+			</div>
+		</section>
+
+	</main>
+
+	<footer class="mt-12 text-center text-xs tracking-widest text-neutral-600 uppercase font-sans">
+		Ourtober &bull; jameskirk865
+	</footer>
+
+	<script>
+		const TARGET_MONTH = 11;
+		
+		const VAULT = [
+			"04230418042e042204180420043200004f1c58830b56beae",
+			"0425042604250425042b042600002fc33e7b48a883d60912",
+			"0438042e04200428042e042c0000289ce2b47fcd0bacbec6",
+			"0427042304220427043a041c000049140654aaa0cb2e92c2",
+			"04290421042f0422041304230423042a00001356c11c9a6a",
+			"042204200429042b043004200426042404330000e1569df1",
+			"0424042c041f041a0424000058bb3c834fc04f194e0859a6",
+			"0425042d041b041a0429042a0432042a04390000b44e3b9d",
+			"041e0427041d042004260000b44ab117e48aff65292972c6",
+			"042c041c041604250433042b042104270000068911fe6b02",
+			"042e042904270430041f041f04260000632241cfa40d0de9",
+			"04190417042804180425041a0431042f000039bb97bcfd65",
+			"0416041f042604170426042a041e04310424000079a50300",
+			"041804280426041e042704280433000062e5da43681645f1",
+			"04220422041904260423042404330000c9b517644538a3f5",
+			"04240417042304330423041b0427043a041c0000b284fbb1",
+			"041a0423042a042d042004180000a64864f5c5f14155d642",
+			"0421041f041d04210435042d043c0000939acd08b2acca51",
+			"0417042e04300433000000b7ecb7457e4783bad98aeaa4c2",
+			"042a0420041a04240432041e0417043504280000bd2f7d10",
+			"042b0415042504280000af6413cb23e80a21fff908fcb1e5",
+			"042f0413042904330413041b042d0420042604350000f83c",
+			"041d041b041f042d042f04220000d634783a51df734add31",
+			"041b0419042a0420042100000c2269b044eefe72124236fb",
+			"0418042104160415042c043b0000fbe4ea4175e7cb60f6cf",
+			"042f042f04260429042f041104210437042d042f04220000",
+			"041f0419041a0420042d0430041e0000c97ee64eef4d67b6",
+			"042f04240438042f042404330000f968101abbae62db69dd",
+			"04210425042704230421042a041f041d00009fe3a078e9d6",
+			"0423041b04240423041d042004110428043700006a0ae19f"
+		];
+
+		const MSK_OFFSET = 3 * 60 * 60 * 1000;
+
+		function getMskState() {
+			const now = Date.now();
+			const msk = new Date(now + MSK_OFFSET);
+			const currentYear = msk.getUTCFullYear();
+			const currentMonth = msk.getUTCMonth() + 1;
+			const currentDay = msk.getUTCDate();
+			const daysInTargetMonth = new Date(Date.UTC(currentYear, TARGET_MONTH, 0)).getUTCDate();
+
+			return {
+				now,
+				currentYear,
+				currentMonth,
+				currentDay,
+				targetMonth: TARGET_MONTH,
+				daysInMonth: daysInTargetMonth
+			};
+		}
+
+		function unlockPrompt(day) {
+			if (day < 1 || day > VAULT.length) return "— — —";
+			const hex = VAULT[day - 1];
+			let word = "";
+			
+			for (let i = 0; i < hex.length; i += 4) {
+				const hexChunk = hex.substring(i, i + 4);
+				
+				// Встретили маркер завершения слова "0000" или неполный блок
+				if (hexChunk === "0000" || hexChunk.length < 4) {
+					break;
+				}
+
+				const val = parseInt(hexChunk, 16);
+				if (isNaN(val)) break;
+
+				const charIndex = i / 4;
+				const shift = (day * 3 + charIndex * 5) % 17;
+				
+				word += String.fromCharCode(val - shift);
+			}
+			
+			return word;
+		}
+
+		function initGrid() {
+			const grid = document.getElementById("promptsGrid");
+			grid.innerHTML = "";
+			const state = getMskState();
+			const rowCount = state.daysInMonth === 31 ? 11 : 10;
+
+			if (window.innerWidth >= 768) {
+				grid.style.gridTemplateRows = `repeat(${rowCount}, minmax(0, 1fr))`;
+			} else {
+				grid.style.gridTemplateRows = "none";
+			}
+
+			for (let i = 1; i <= state.daysInMonth; i++) {
+				const item = document.createElement("div");
+				item.id = `day-card-${i}`;
+				item.className = "flex items-baseline space-x-2 py-1 border-b border-neutral-900 transition-colors";
+				item.innerHTML = `
+					<span class="text-neutral-500 w-7 text-right font-mono text-sm">${i}.</span>
+					<span id="day-text-${i}" class="text-neutral-800 tracking-widest select-none">········</span>
+				`;
+				grid.appendChild(item);
+			}
+		}
+
+		function syncCalendar() {
+			const state = getMskState();
+			const targetDateObj = new Date(Date.UTC(state.currentYear, state.targetMonth - 1, 1));
+			const monthName = targetDateObj.toLocaleString('ru-RU', { month: 'long', timeZone: 'UTC' });
+			document.getElementById("currentDateBadge").textContent = 
+				`${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${state.currentYear}`;
+
+			const isCurrentMonth = state.currentMonth === state.targetMonth;
+			const isPastMonth = state.currentMonth > state.targetMonth;
+			const isFutureMonth = state.currentMonth < state.targetMonth;
+
+			for (let day = 1; day <= state.daysInMonth; day++) {
+				const textElement = document.getElementById(`day-text-${day}`);
+				const cardElement = document.getElementById(`day-card-${day}`);
+				if (!textElement || !cardElement) continue;
+
+				let shouldOpen = false;
+				let isToday = false;
+
+				if (isPastMonth) {
+					shouldOpen = true;
+				} else if (isCurrentMonth) {
+					if (day < state.currentDay) shouldOpen = true;
+					else if (day === state.currentDay) {
+						shouldOpen = true;
+						isToday = true;
+					}
+				}
+
+				if (isToday) {
+					const word = unlockPrompt(day);
+					textElement.textContent = word;
+					textElement.className = "text-white tracking-widest font-black underline decoration-2 underline-offset-4";
+					cardElement.classList.add("bg-neutral-900/50");
+					document.getElementById("activePrompt").textContent = word;
+				} else if (shouldOpen) {
+					textElement.textContent = unlockPrompt(day);
+					textElement.className = "text-neutral-300 tracking-wider font-bold";
+					cardElement.classList.remove("bg-neutral-900/50");
+				} else {
+					textElement.textContent = "— — —";
+					textElement.className = "text-neutral-800 tracking-widest select-none";
+					cardElement.classList.remove("bg-neutral-900/50");
+				}
+			}
+
+			const promptBox = document.getElementById("activePrompt");
+			const promptLabel = document.getElementById("activePromptLabel");
+			const countdownContainer = document.getElementById("countdown").parentElement;
+
+			if (isPastMonth) {
+				if (promptLabel) {
+					promptLabel.style.display = "none";
+				}
+				promptBox.textContent = "ЧЕЛЛЕНДЖ ЗАВЕРШЕН";
+				promptBox.className = "text-2xl sm:text-4xl font-black uppercase tracking-widest text-neutral-400 min-h-[3rem] flex items-center justify-center";
+				if (countdownContainer) {
+					countdownContainer.style.display = "none";
+				}
+			} else {
+				if (promptLabel) {
+					promptLabel.style.display = "block";
+				}
+				if (countdownContainer) {
+					countdownContainer.style.display = "flex";
+				}
+				if (isFutureMonth) {
+					promptBox.textContent = "СКОРО";
+					if (promptLabel) {
+						promptLabel.style.display = "none";
+					}
+				}
+			}
+		}
+
+		function updateCountdown() {
+			const state = getMskState();
+			let targetUtc;
+			const label = document.getElementById("countdownLabel");
+
+			if (state.currentMonth < state.targetMonth) {
+				label.textContent = "Челлендж начнется через";
+				targetUtc = Date.UTC(state.currentYear, state.targetMonth - 1, 1, 0, 0, 0, 0) - MSK_OFFSET;
+			} else if (state.currentMonth === state.targetMonth) {
+				label.textContent = "Следующая тема откроется через";
+				targetUtc = Date.UTC(state.currentYear, state.targetMonth - 1, state.currentDay + 1, 0, 0, 0, 0) - MSK_OFFSET;
+			} else {
+				label.textContent = "Челлендж завершен";
+				document.getElementById("countdown").textContent = "00:00:00";
+				return;
+			}
+
+			const diffMs = targetUtc - state.now;
+
+			if (diffMs <= 0) {
+				initGrid();
+				syncCalendar();
+				return;
+			}
+
+			const totalSec = Math.floor(diffMs / 1000);
+			const days = Math.floor(totalSec / 86400);
+			const hours = Math.floor((totalSec % 86400) / 3600);
+			const minutes = Math.floor((totalSec % 3600) / 60);
+			const seconds = totalSec % 60;
+
+			const pad = (n) => String(n).padStart(2, "0");
+
+			if (days > 0) {
+				document.getElementById("countdown").textContent = `${days}д ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+			} else {
+				document.getElementById("countdown").textContent = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+			}
+		}
+
+		initGrid();
+		syncCalendar();
+		updateCountdown();
+		setInterval(updateCountdown, 1000);
+
+		window.addEventListener("resize", () => {
+			const state = getMskState();
+			const rowCount = state.daysInMonth === 31 ? 11 : 10;
+			const grid = document.getElementById("promptsGrid");
+			if (grid) {
+				grid.style.gridTemplateRows = window.innerWidth >= 768 ? `repeat(${rowCount}, minmax(0, 1fr))` : "none";
+			}
+		});
+	</script>
+</body>
+</html>
